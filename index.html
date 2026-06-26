@@ -1,0 +1,514 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Kunal Singh - High-end Art Director & Web Engineer.">
+  <title>Kunal Singh | Cinematic Portfolio</title>
+  
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,600;0,900;1,400;1,600&family=Inter:wght@300;400;500;700&display=swap" rel="stylesheet">
+  
+  <script src="https://cdn.tailwindcss.com"></script>
+  
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/ScrollTrigger.min.js"></script>
+
+  <style>
+    :root { 
+      font-family: 'Inter', sans-serif; 
+      --cursor-size: 12px;
+    }
+    .font-editorial { font-family: 'Playfair Display', serif; }
+
+    html, body {
+      cursor: none;
+      scroll-behavior: auto;
+      margin: 0;
+      background-color: #000000; 
+      color: #ffffff;
+      overflow-x: hidden;
+    }
+
+    /* --- REAL WEBGL SHADER BACKGROUND (B&W) --- */
+    #shader-canvas {
+      position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
+      z-index: -2; pointer-events: none;
+    }
+    .noise-overlay {
+      position: fixed; inset: 0; z-index: -1; pointer-events: none; opacity: 0.05;
+      background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E");
+    }
+
+    /* --- INVERSION CURSOR --- */
+    .custom-cursor {
+      position: fixed; top: 0; left: 0;
+      width: var(--cursor-size); height: var(--cursor-size);
+      background-color: #ffffff; border-radius: 50%;
+      pointer-events: none; z-index: 9999;
+      transform: translate(-50%, -50%);
+      mix-blend-mode: difference;
+      transition: width 0.3s cubic-bezier(0.25, 1, 0.5, 1), height 0.3s cubic-bezier(0.25, 1, 0.5, 1);
+    }
+    .custom-cursor.hovering { width: 80px; height: 80px; }
+
+    /* --- PAGE REVEAL --- */
+    .page-transition {
+      position: fixed; inset: 0; background-color: #000000; z-index: 9998;
+      display: flex; flex-direction: column; justify-content: center; align-items: center;
+    }
+    .loader-text { font-size: 2rem; letter-spacing: 0.2em; text-transform: uppercase; opacity: 0; }
+
+    /* --- LAYOUT UTILS --- */
+    .outline-text {
+      color: transparent;
+      -webkit-text-stroke: 1px rgba(255, 255, 255, 0.2);
+    }
+    
+    .sticky-card {
+      position: sticky; top: 15vh; height: 70vh; transform-origin: top center;
+    }
+
+    .marquee-container {
+      display: flex; width: 200vw; overflow: hidden; white-space: nowrap;
+    }
+    .marquee-content {
+      animation: marquee 20s linear infinite;
+    }
+    @keyframes marquee { 0% { transform: translateX(0); } 100% { transform: translateX(-50%); } }
+
+    .bar {
+      width: 3px; height: 12px; background: white; margin: 0 2px;
+      display: inline-block; transform-origin: bottom; transition: height 0.1s ease;
+    }
+    .playing .bar { animation: eq 1s ease-in-out infinite alternate; }
+    .playing .bar:nth-child(2) { animation-delay: 0.2s; }
+    .playing .bar:nth-child(3) { animation-delay: 0.4s; }
+    .playing .bar:nth-child(4) { animation-delay: 0.1s; }
+    @keyframes eq { 0% { height: 4px; } 100% { height: 16px; } }
+
+    .magnetic { display: inline-block; transition: transform 0.3s cubic-bezier(0.25, 1, 0.5, 1); }
+  </style>
+</head>
+
+<body class="antialiased selection:bg-white selection:text-black">
+
+  <canvas id="shader-canvas"></canvas>
+  <div class="noise-overlay"></div>
+  <div class="custom-cursor" id="custom-cursor"></div>
+  
+  <div class="page-transition" id="page-transition">
+    <div class="font-editorial loader-text italic gs-loader-text">Kunal Singh</div>
+    <div class="h-[1px] w-0 bg-white mt-4 gs-loader-line"></div>
+  </div>
+
+  <audio id="bg-music" src="bg-music.mp3" loop preload="auto"></audio>
+
+  <nav class="fixed top-0 left-0 w-full p-6 sm:px-10 flex justify-between items-center z-50 mix-blend-difference text-white">
+    <div class="font-editorial text-xl font-bold tracking-widest italic hover-target cursor-none">K.S</div>
+    
+    <div id="audio-toggle" class="flex items-center gap-4 hover-target cursor-none magnetic group">
+      <span class="text-xs font-bold uppercase tracking-[0.2em] audio-status hidden sm:block">Sound: Off</span>
+      <div class="flex items-end h-4 audio-bars">
+        <span class="bar"></span><span class="bar"></span><span class="bar"></span><span class="bar"></span>
+      </div>
+    </div>
+  </nav>
+
+  <div class="min-h-screen relative z-10">
+    
+    <section class="h-screen w-full flex flex-col justify-center items-center relative overflow-hidden" id="hero">
+      
+      <div class="flex flex-col items-center justify-center w-full z-10 px-4">
+         
+         <div class="hero-text-top overflow-hidden">
+             <h1 class="font-editorial text-[16vw] md:text-[12vw] leading-[0.85] font-black text-white mix-blend-difference uppercase text-center tracking-tighter">
+                Kunal
+             </h1>
+         </div>
+         
+         <div class="my-4 md:my-8 w-[90vw] md:w-[65vw] h-[20vh] md:h-[35vh] overflow-hidden relative gs-hero-video shadow-[0_30px_80px_rgba(0,0,0,0.9)] cursor-none hover-target group border border-white/20">
+            <div class="absolute inset-0 bg-black/40 z-10 opacity-0 group-hover:opacity-100 transition-opacity duration-500 flex items-center justify-center">
+                <span class="font-editorial text-2xl italic text-white tracking-widest">Play Reel</span>
+            </div>
+            <video autoplay muted loop playsinline class="w-full h-full object-cover filter grayscale contrast-125 brightness-90 group-hover:scale-105 transition-transform duration-1000">
+               <source src="video.mp4" type="video/mp4">
+            </video>
+         </div>
+
+         <div class="hero-text-bottom overflow-hidden">
+             <h1 class="font-editorial text-[16vw] md:text-[12vw] leading-[0.85] font-black text-white mix-blend-difference uppercase text-center tracking-tighter">
+                <span class="italic font-light outline-text">Singh</span>
+             </h1>
+         </div>
+         
+         <p class="mt-8 text-[10px] md:text-xs font-bold uppercase tracking-[0.4em] text-zinc-400 gs-reveal">Art Direction // Engineering // Motion</p>
+      </div>
+
+      <div class="absolute bottom-6 left-1/2 -translate-x-1/2 flex flex-col items-center gap-2 gs-reveal">
+        <div class="w-[1px] h-16 bg-gradient-to-b from-white to-transparent opacity-50"></div>
+      </div>
+    </section>
+
+    <section class="py-20 border-y border-white/10 bg-black/50 backdrop-blur-sm overflow-hidden relative z-20 mt-10">
+      <div class="marquee-container font-editorial text-6xl sm:text-8xl italic font-light text-white opacity-80">
+        <div class="marquee-content flex gap-8">
+          <span>CREATIVE ENGINEERING // </span>
+          <span class="outline-text">DIGITAL STRATEGY // </span>
+          <span>HIGH-END UI // </span>
+          <span class="outline-text">VALYRIAN PRECISION // </span>
+          <span>CREATIVE ENGINEERING // </span>
+          <span class="outline-text">DIGITAL STRATEGY // </span>
+          <span>HIGH-END UI // </span>
+          <span class="outline-text">VALYRIAN PRECISION // </span>
+        </div>
+      </div>
+    </section>
+
+    <section id="projects" class="px-6 py-32 sm:px-14 relative pb-64">
+      <div class="mx-auto max-w-7xl">
+        <div class="mb-20 gs-fade-up">
+          <h2 class="font-editorial text-5xl sm:text-7xl font-bold tracking-tight text-white">The <span class="italic font-light text-zinc-500">Framework.</span></h2>
+          <p class="max-w-md text-lg font-light leading-relaxed text-zinc-400 mt-6">A disciplined approach to premium digital architecture, utilizing core disciplines to build ruling products.</p>
+        </div>
+
+        <div class="relative w-full">
+          <div class="sticky-card w-full rounded-2xl border border-white/20 bg-black p-8 sm:p-14 shadow-[0_-10px_30px_rgba(0,0,0,0.8)] flex flex-col justify-between overflow-hidden group">
+            <div class="absolute top-0 right-0 w-1/2 h-full opacity-20 filter grayscale contrast-125 group-hover:opacity-40 transition-opacity duration-700">
+                <img src="https://images.unsplash.com/photo-1600585154340-be6161a56a0c?auto=format&fit=crop&w=800&q=80" class="w-full h-full object-cover object-center" alt="Architecture">
+            </div>
+            <div class="relative z-10 flex justify-between items-start w-full">
+              <span class="text-sm font-bold uppercase tracking-[0.3em] text-white bg-white/10 px-4 py-2 rounded-full backdrop-blur-md">01 / Logic</span>
+              <div class="p-4 rounded-full border border-white/20 hover-target"><svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" class="w-6 h-6"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M17 8l4 4m0 0l-4 4m4-4H3"/></svg></div>
+            </div>
+            <div class="relative z-10 max-w-xl">
+              <h3 class="font-editorial text-4xl sm:text-6xl font-bold text-white mb-6">Backend Engineering</h3>
+              <p class="text-lg font-light text-zinc-400">Writing highly optimized algorithms in Java & C++. Tackling complex logic, squashing performance bottlenecks, and building unbreakable infrastructures.</p>
+            </div>
+          </div>
+
+          <div class="sticky-card w-full rounded-2xl border border-white/20 bg-[#0a0a0a] p-8 sm:p-14 shadow-[0_-10px_40px_rgba(0,0,0,0.9)] flex flex-col justify-between overflow-hidden mt-12 group">
+            <div class="absolute top-0 right-0 w-1/2 h-full opacity-20 filter grayscale contrast-125 group-hover:opacity-40 transition-opacity duration-700">
+                <img src="https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?auto=format&fit=crop&w=800&q=80" class="w-full h-full object-cover object-center" alt="Abstract Data">
+            </div>
+            <div class="relative z-10 flex justify-between items-start w-full">
+              <span class="text-sm font-bold uppercase tracking-[0.3em] text-white bg-white/10 px-4 py-2 rounded-full backdrop-blur-md">02 / Foundation</span>
+            </div>
+            <div class="relative z-10 max-w-xl">
+              <h3 class="font-editorial text-4xl sm:text-6xl font-bold text-white mb-6">Cloud & Azure Data</h3>
+              <p class="text-lg font-light text-zinc-400">Building and managing solid data foundations. Utilizing Microsoft Azure services for scalable, secure, and globally accessible cloud architecture.</p>
+            </div>
+          </div>
+
+          <div class="sticky-card w-full rounded-2xl border border-white/20 bg-[#111111] p-8 sm:p-14 shadow-[0_-10px_40px_rgba(0,0,0,0.9)] flex flex-col justify-between overflow-hidden mt-12 group">
+            <div class="absolute top-0 right-0 w-1/2 h-full opacity-20 filter grayscale contrast-125 group-hover:opacity-40 transition-opacity duration-700">
+                <img src="https://images.unsplash.com/photo-1509631179647-0177331693ae?auto=format&fit=crop&w=800&q=80" class="w-full h-full object-cover object-top" alt="Fashion UI">
+            </div>
+            <div class="relative z-10 flex justify-between items-start w-full">
+              <span class="text-sm font-bold uppercase tracking-[0.3em] text-white bg-white/10 px-4 py-2 rounded-full backdrop-blur-md">03 / Surface</span>
+            </div>
+            <div class="relative z-10 max-w-xl">
+              <h3 class="font-editorial text-4xl sm:text-6xl font-bold text-white mb-6">Frontend Architecture</h3>
+              <p class="text-lg font-light text-zinc-400">Crafting pixel-perfect, highly responsive interfaces from scratch. Fusing modern HTML, CSS, JavaScript, and complex WebGL animations.</p>
+            </div>
+          </div>
+          
+        </div>
+      </div>
+    </section>
+
+    <section id="inspiration" class="px-6 py-32 sm:px-14 bg-white text-black rounded-t-[3rem] relative z-20">
+      <div class="mx-auto max-w-7xl">
+        <div class="mb-24 flex flex-col md:flex-row justify-between items-end gap-10 gs-fade-up">
+          <div class="space-y-6">
+            <p class="text-xs font-bold uppercase tracking-[0.35em] text-zinc-500">// The Vision Board</p>
+            <h2 class="font-editorial text-5xl sm:text-7xl font-black uppercase tracking-tight">Visual <br><span class="italic font-light text-zinc-400">Studies.</span></h2>
+          </div>
+          <p class="max-w-sm text-lg font-light leading-relaxed text-zinc-600">A curation of forms, sculptures, and raw textures that dictate the mood and materiality of my digital work.</p>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-12 gap-6 md:gap-10">
+          <div class="md:col-span-7 flex flex-col gap-10 gs-fade-up">
+            <div class="w-full h-[60vh] bg-zinc-200 overflow-hidden relative group cursor-none hover-target">
+              <img src="https://images.unsplash.com/photo-1544413660-299165566b1d?auto=format&fit=crop&w=1200&q=80" alt="Sculpture" class="w-full h-full object-cover filter grayscale hover:scale-105 transition-transform duration-1000">
+              <div class="absolute bottom-6 left-6 mix-blend-difference text-white">
+                <p class="text-xs font-bold uppercase tracking-[0.2em]">Form 01</p>
+                <h3 class="font-editorial text-3xl">Classical Tension</h3>
+              </div>
+            </div>
+            <div class="w-full md:w-3/4 ml-auto text-lg font-light text-zinc-600 pl-8 border-l border-black/20">
+              "The architecture of the digital space must possess the same structural integrity and shadow-play as physical stone."
+            </div>
+          </div>
+
+          <div class="md:col-span-5 flex flex-col gap-10 mt-10 md:mt-32 gs-fade-up">
+            <div class="w-full h-[70vh] bg-zinc-200 overflow-hidden relative group cursor-none hover-target">
+              <img src="https://images.unsplash.com/photo-1600585154340-be6161a56a0c?auto=format&fit=crop&w=800&q=80" alt="Minimal Architecture" class="w-full h-full object-cover filter grayscale hover:scale-105 transition-transform duration-1000">
+              <div class="absolute bottom-6 left-6 mix-blend-difference text-white">
+                <p class="text-xs font-bold uppercase tracking-[0.2em]">Structure 02</p>
+                <h3 class="font-editorial text-3xl">Minimal brutalism</h3>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <footer id="contact" class="px-6 py-32 text-white sm:px-14 bg-black relative border-t border-white/10 rounded-b-[3rem] z-20">
+      <div class="mx-auto max-w-7xl gs-fade-up relative z-10 flex flex-col items-center text-center">
+        
+        <p class="text-xs font-bold uppercase tracking-[0.35em] text-zinc-500 mb-8">// Initiate Protocol</p>
+        <h2 class="font-editorial text-6xl sm:text-[8rem] font-black tracking-tight uppercase leading-none mb-12">
+          Let's <span class="italic font-light outline-text">Talk.</span>
+        </h2>
+        
+        <a href="mailto:hello@kunalsingh.design" class="hover-target magnetic inline-flex items-center justify-center border border-white px-12 py-6 text-sm font-bold uppercase tracking-[0.2em] text-white transition hover:bg-white hover:text-black rounded-full">
+          hello@kunalsingh.design
+        </a>
+        
+        <div class="mt-32 w-full flex flex-col md:flex-row justify-between items-center pt-8 border-t border-white/10 gap-6 text-xs font-bold tracking-[0.2em] uppercase text-zinc-500">
+          <p>© 2026 Kunal Singh</p>
+          <div class="flex gap-8">
+            <a href="#" class="hover-target hover:text-white transition">LinkedIn</a>
+            <a href="#" class="hover-target hover:text-white transition">Twitter</a>
+            <a href="#" class="hover-target hover:text-white transition">Instagram</a>
+          </div>
+        </div>
+      </div>
+    </footer>
+
+  </div>
+
+  <script>
+    function initShader() {
+      const canvas = document.getElementById('shader-canvas');
+      const gl = canvas.getContext('webgl');
+      if (!gl) return;
+
+      const vsSource = `
+        attribute vec2 position;
+        void main() { gl_Position = vec4(position, 0.0, 1.0); }
+      `;
+
+      const fsSource = `
+        precision mediump float;
+        uniform vec2 u_resolution;
+        uniform float u_time;
+
+        float random (in vec2 st) { return fract(sin(dot(st.xy, vec2(12.9898,78.233))) * 43758.5453123); }
+
+        float noise (in vec2 st) {
+            vec2 i = floor(st); vec2 f = fract(st);
+            float a = random(i); float b = random(i + vec2(1.0, 0.0));
+            float c = random(i + vec2(0.0, 1.0)); float d = random(i + vec2(1.0, 1.0));
+            vec2 u = f * f * (3.0 - 2.0 * f);
+            return mix(a, b, u.x) + (c - a)* u.y * (1.0 - u.x) + (d - b) * u.x * u.y;
+        }
+
+        #define OCTAVES 5
+        float fbm (in vec2 st) {
+            float value = 0.0; float amplitude = .5; float frequency = 0.;
+            for (int i = 0; i < OCTAVES; i++) {
+                value += amplitude * noise(st); st *= 2.; amplitude *= .5;
+            }
+            return value;
+        }
+
+        void main() {
+            vec2 st = gl_FragCoord.xy/u_resolution.xy;
+            st.x *= u_resolution.x/u_resolution.y;
+
+            vec2 q = vec2(0.);
+            q.x = fbm( st + 0.05*u_time);
+            q.y = fbm( st + vec2(1.0));
+
+            vec2 r = vec2(0.);
+            r.x = fbm( st + 1.0*q + vec2(1.7,9.2)+ 0.03*u_time );
+            r.y = fbm( st + 1.0*q + vec2(8.3,2.8)+ 0.03*u_time);
+
+            float f = fbm(st+r);
+
+            // B&W Monochromatic map
+            vec3 color = mix(vec3(0.0), vec3(0.15), clamp((f*f)*4.0,0.0,1.0));
+            color = mix(color, vec3(0.02), clamp(length(q),0.0,1.0));
+
+            gl_FragColor = vec4((f*f*f+.6*f*f+.5*f)*color, 1.0);
+        }
+      `;
+
+      function createShader(gl, type, source) {
+        const shader = gl.createShader(type);
+        gl.shaderSource(shader, source);
+        gl.compileShader(shader);
+        return shader;
+      }
+
+      const vertexShader = createShader(gl, gl.VERTEX_SHADER, vsSource);
+      const fragmentShader = createShader(gl, gl.FRAGMENT_SHADER, fsSource);
+
+      const program = gl.createProgram();
+      gl.attachShader(program, vertexShader);
+      gl.attachShader(program, fragmentShader);
+      gl.linkProgram(program);
+      gl.useProgram(program);
+
+      const positionBuffer = gl.createBuffer();
+      gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer);
+      gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1, -1, 1, -1, -1, 1, 1, 1]), gl.STATIC_DRAW);
+
+      const positionLocation = gl.getAttribLocation(program, 'position');
+      gl.enableVertexAttribArray(positionLocation);
+      gl.vertexAttribPointer(positionLocation, 2, gl.FLOAT, false, 0, 0);
+
+      const resolutionLocation = gl.getUniformLocation(program, 'u_resolution');
+      const timeLocation = gl.getUniformLocation(program, 'u_time');
+
+      function resize() {
+        canvas.width = window.innerWidth; canvas.height = window.innerHeight;
+        gl.viewport(0, 0, canvas.width, canvas.height);
+        gl.uniform2f(resolutionLocation, canvas.width, canvas.height);
+      }
+      window.addEventListener('resize', resize); resize();
+
+      function render(time) {
+        gl.uniform1f(timeLocation, time * 0.001);
+        gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+        requestAnimationFrame(render);
+      }
+      requestAnimationFrame(render);
+    }
+  </script>
+
+  <script>
+    document.addEventListener("DOMContentLoaded", () => {
+      
+      initShader(); 
+      
+      // --- AUDIO LOGIC ---
+      const music = document.getElementById('bg-music');
+      const audioToggle = document.getElementById('audio-toggle');
+      const audioStatus = document.querySelector('.audio-status');
+      let isPlaying = false;
+
+      audioToggle.addEventListener('click', () => {
+        if (isPlaying) {
+          music.pause();
+          audioToggle.classList.remove('playing');
+          if(audioStatus) audioStatus.innerText = "Sound: Off";
+        } else {
+          music.play().then(() => {
+            audioToggle.classList.add('playing');
+            if(audioStatus) audioStatus.innerText = "Sound: On";
+          }).catch(err => console.log("Audio play failed:", err));
+        }
+        isPlaying = !isPlaying;
+      });
+
+      // --- PAGE REVEAL ---
+      const transitionEl = document.getElementById('page-transition');
+      const loaderText = document.querySelector('.gs-loader-text');
+      const loaderLine = document.querySelector('.gs-loader-line');
+      
+      const tl = gsap.timeline();
+      tl.to(loaderText, { opacity: 1, duration: 1, ease: "power2.out" })
+        .to(loaderLine, { width: "100px", duration: 0.8, ease: "power2.out" }, "-=0.5")
+        .to(loaderText, { opacity: 0, y: -20, duration: 0.8, ease: "power2.in", delay: 0.4 })
+        .to(loaderLine, { width: "0px", duration: 0.5, ease: "power2.in" }, "-=0.6")
+        .to(transitionEl, {
+          opacity: 0, duration: 1.5, ease: "power2.inOut",
+          onComplete: () => {
+              transitionEl.style.display = 'none';
+              initAnimations();
+          }
+        });
+
+      function initAnimations() {
+        gsap.registerPlugin(ScrollTrigger);
+
+        // --- Custom Cursor ---
+        const cursor = document.getElementById('custom-cursor');
+        const hoverTargets = document.querySelectorAll('.hover-target, a, button');
+        
+        document.addEventListener('mousemove', (e) => {
+          gsap.to(cursor, { x: e.clientX, y: e.clientY, duration: 0.15, ease: "power2.out" });
+        });
+
+        hoverTargets.forEach(target => {
+          target.addEventListener('mouseenter', () => cursor.classList.add('hovering'));
+          target.addEventListener('mouseleave', () => cursor.classList.remove('hovering'));
+        });
+
+        // --- Magnetic Elements ---
+        document.querySelectorAll('.magnetic').forEach(btn => {
+          btn.addEventListener('mousemove', (e) => {
+            const rect = btn.getBoundingClientRect();
+            const h = rect.width / 2; const w = rect.height / 2;
+            const x = e.clientX - rect.left - h; const y = e.clientY - rect.top - w;
+            gsap.to(btn, { x: x * 0.3, y: y * 0.3, duration: 0.3, ease: "power2.out" });
+          });
+          btn.addEventListener('mouseleave', () => {
+            gsap.to(btn, { x: 0, y: 0, duration: 0.5, ease: "elastic.out(1, 0.3)" });
+          });
+        });
+
+        // --- Hero Parallax & Expansion ---
+        gsap.to('.hero-text-top', {
+            yPercent: -60,
+            opacity: 0,
+            scrollTrigger: { trigger: '#hero', start: 'top top', end: 'bottom top', scrub: true }
+        });
+        
+        gsap.to('.hero-text-bottom', {
+            yPercent: 60,
+            opacity: 0,
+            scrollTrigger: { trigger: '#hero', start: 'top top', end: 'bottom top', scrub: true }
+        });
+        
+        // Expands the video cinematic slice
+        gsap.to('.gs-hero-video', {
+            width: '95vw',
+            height: '70vh',
+            y: 50,
+            scrollTrigger: { trigger: '#hero', start: 'top top', end: 'bottom top', scrub: true }
+        });
+
+        // --- Standard Reveals ---
+        gsap.fromTo(".gs-reveal", 
+          { y: 40, opacity: 0 },
+          { y: 0, opacity: 1, duration: 1.5, stagger: 0.15, ease: "power3.out" }
+        );
+
+        gsap.utils.toArray('.gs-fade-up').forEach(sec => {
+          gsap.fromTo(sec, 
+            { y: 50, opacity: 0 },
+            { scrollTrigger: { trigger: sec, start: "top 85%" }, y: 0, opacity: 1, duration: 1.2, ease: "power3.out" }
+          );
+        });
+
+        // --- STICKY CARD PARALLAX EFFECT ---
+        const cards = gsap.utils.toArray('.sticky-card');
+        cards.forEach((card, i) => {
+           if (i !== cards.length - 1) { 
+               gsap.to(card, {
+                   scale: 0.9,
+                   opacity: 0.5,
+                   scrollTrigger: {
+                       trigger: card,
+                       start: "top 15%",
+                       endTrigger: ".sticky-card:last-child",
+                       end: "top 15%",
+                       scrub: true,
+                   }
+               });
+           }
+        });
+
+        setTimeout(() => { ScrollTrigger.refresh(); }, 500);
+      }
+      
+      window.addEventListener("load", () => { ScrollTrigger.refresh(); });
+    });
+  </script>
+</body>
+</html>
